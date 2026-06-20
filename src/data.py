@@ -1,26 +1,45 @@
 import os
+import json
 from datasets import load_dataset
 
 raw = "data/raw"
 train = os.path.join(raw, "wiki_train.jsonl")
 validation = os.path.join(raw, "wiki_val.jsonl")
-split = "train[:5%]"
 
 def prep_data():
     os.makedirs(raw, exist_ok=True)
 
-    train_set = load_dataset("wikitext", "wikitext-103-raw-v1", split= split)
-    val_set = load_dataset("wikitext", "wikitext-103-raw-v1", split = "validation")
+    train_stream = load_dataset(
+        "Salesforce/wikitext", "wikitext-103-raw-v1", split="train", streaming=True
+    ).filter(lambda x: len(x["text"].strip()) > 0)
+    val_stream = load_dataset(
+        "Salesforce/wikitext", "wikitext-103-raw-v1", split="validation", streaming=True
+    ).filter(lambda x: len(x["text"].strip()) > 0)
 
-    train_set = train_set.filter(lambda x: len(x["text"].strip()) > 0)
-    val_set = val_set.filter(lambda x: len(x["text"].strip()) > 0)
+    # Take ~25MB worth of training examples (~50k lines)
+    target_mb = 25
+    train_count = 0
+    with open(train, "w") as f:
+        for example in train_stream:
+            f.write(json.dumps({"text": example["text"]}) + "\n")
+            train_count += 1
+            if os.path.getsize(train) >= target_mb * 1e6:
+                break
 
-    train_set.to_json(train, lines=True)
-    val_set.to_json(validation, lines=True)
+    val_count = 0
+    with open(validation, "w") as f:
+        for example in val_stream:
+            f.write(json.dumps({"text": example["text"]}) + "\n")
+            val_count += 1
 
-    print(f"Train examples: {len(train_set)}")
-    print(f"Validation examples: {len(val_set)}")
-    print(f"Sample text: {train_set[0]['text'][:200]!r}")
+    train_mb = os.path.getsize(train) / 1e6
+    val_mb = os.path.getsize(validation) / 1e6
+    print(f"Train examples: {train_count}, size: {train_mb:.1f}MB")
+    print(f"Val examples: {val_count}, size: {val_mb:.1f}MB")
+    with open(train) as f:
+        sample = json.loads(f.readline())["text"]
+    print(f"Sample: {sample[:200]!r}")
+
 
 if __name__ == "__main__":
     prep_data()
