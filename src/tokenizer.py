@@ -25,6 +25,13 @@ token.post_processor = processors.TemplateProcessing(
                     ("[SEP]", token.token_to_id("[SEP]"))],
 )
 
+print(f"Actual vocab size: {token.get_vocab_size()}")
+test_prompt = "the transformer architecture changed natural language processing and whole TTS, SST verse." # input test prompt to verify and continue the without any crashout
+encode = token.encode(test_prompt)
+
+print(f"Input text:  '{test_prompt}'")
+print(f"Tokens:      {encode.tokens}")
+print(f"Token IDs:   {encode.ids}")
 
 os.makedirs("tokenizer", exist_ok=True)
 token.save("tokenizer/tokenizer.json")
